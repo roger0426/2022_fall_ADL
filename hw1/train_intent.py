@@ -41,17 +41,6 @@ def save_checkpoint(net, optimizer, path, epoch, loss, last_path):
 
 def main(args):
 
-    # Seed
-    # seed = args.rand_seed
-    # torch.manual_seed(seed)
-    # torch.cuda.manual_seed(seed)
-    # torch.cuda.manual_seed_all(seed)
-    # np.random.seed(seed)
-    # random.seed(seed)
-    # torch.backends.cudnn.benchmark = False
-    # torch.backends.cudnn.deterministic = True
-
-    #
     with open(args.cache_dir / "vocab.pkl", "rb") as f:
         vocab: Vocab = pickle.load(f)
 
@@ -87,8 +76,8 @@ def main(args):
     model.to(args.device)
 
     # TODO: init optimizer
-    optimizer = torch.optim.SGD(model.parameters(), lr=args.lr, momentum=args.momentum)
-    # optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
+    # optimizer = torch.optim.SGD(model.parameters(), lr=args.lr, momentum=args.momentum)
+    optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
     # optimizer = torch.optim.RMSprop(model.parameters(), lr=args.lr, alpha=0.99, eps=1e-08, weight_decay=0,\
     #     momentum=args.momentum, centered=False, foreach=None)
     criterion = nn.CrossEntropyLoss() #ignore index
@@ -190,30 +179,30 @@ def parse_args() -> Namespace:
     )
 
     #seed
-    parser.add_argument("--rand_seed", type=int, help="Random seed.", default=9)
+    parser.add_argument("--rand_seed", type=int, help="Random seed.", default=99)
 
     # data
     parser.add_argument("--max_len", type=int, default=128)
 
     # model
-    parser.add_argument("--hidden_size", type=int, default=1024) # 512
-    parser.add_argument("--num_layers", type=int, default=4)
-    parser.add_argument("--dropout", type=float, default=0.4)
+    parser.add_argument("--hidden_size", type=int, default=2048) # 512
+    parser.add_argument("--num_layers", type=int, default=2)
+    parser.add_argument("--dropout", type=float, default=0.85)
     parser.add_argument("--bidirectional", type=bool, default=True)
 
     # optimizer
-    parser.add_argument("--lr", type=float, default=1.15)
-    parser.add_argument("--momentum", type=float, default=0.8)
+    parser.add_argument("--lr", type=float, default=5e-4)
+    parser.add_argument("--momentum", type=float, default=0.6)
     
 
     # data loader
-    parser.add_argument("--batch_size", type=int, default=64) # 64
+    parser.add_argument("--batch_size", type=int, default=256) # 64
 
     # training
     parser.add_argument(
         "--device", type=torch.device, help="cpu, cuda, cuda:0, cuda:1", default="cuda:0"
     )
-    parser.add_argument("--num_epoch", type=int, default=100)
+    parser.add_argument("--num_epoch", type=int, default=150)
 
     args = parser.parse_args()
     return args

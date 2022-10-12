@@ -1,5 +1,5 @@
 # requirements
-torch==1.12.1
+# torch==1.12.1
 # tensorflow==2.10.0
 seqeval==1.2.2
 tqdm
