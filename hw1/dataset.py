@@ -59,8 +59,46 @@ class SeqClsDataset(Dataset):
 
 
 class SeqTaggingClsDataset(SeqClsDataset):
-    ignore_idx = -100
+    # ignore_idx = -100
 
-    def collate_fn(self, samples):
-        # TODO: implement collate_fn
-        raise NotImplementedError
+    def __init__(
+        self,
+        data: List[Dict],
+        vocab: Vocab,
+        label_mapping: Dict[str, int],
+        max_len: int,
+    ):
+        super().__init__(data, vocab, label_mapping, max_len)
+        # self.data = data
+        # self.vocab = vocab
+        # self.label_mapping = label_mapping
+        # self._idx2atg = {idx: tag_label for tag_label, idx in self.label_mapping.items()}
+        # self.max_len = max_len
+
+    def collate_fn(self, samples: List[Dict]) -> Dict:
+        # print(len(self.data))
+        ignore_idx = -100
+
+        # TODO implement collate_fn3
+        d = {}
+        d['id'] = [sample['id'] for sample in samples]
+        d['token'], d['token_len'], d['tag'] = [], [], []
+        for sample in samples:
+            d['token'].append(sample['tokens'])
+            d['token_len'].append(len(sample['tokens']))
+            try:
+                tag_list = [self.tag2idx(item) for item in sample['tags']]
+                tag_list += [ignore_idx]*(self.max_len-len(tag_list))
+                d['tag'].append(tag_list)
+            except:
+                pass
+
+        d['token'] = self.vocab.encode_batch(d['token'], to_len=self.max_len)
+
+        return d['id'], d['token'], d['token_len'], d['tag']
+
+    def tag2idx(self, label: str):
+        return self.label_mapping[label]
+
+    def idx2tag(self, idx: int):
+        return self._idx2label[idx]

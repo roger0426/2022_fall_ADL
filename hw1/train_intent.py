@@ -56,13 +56,13 @@ def main(args):
 
     print(len(datasets[TRAIN]))
 
-    # TODO: create DataLoader for train / dev datasets
+    # TODO create DataLoader for train / dev datasets
     train_dataloader = DataLoader(datasets[TRAIN], args.batch_size, shuffle=True, collate_fn=datasets[TRAIN].collate_fn)
     val_dataloader = DataLoader(datasets[DEV], args.batch_size, shuffle=False, collate_fn=datasets[DEV].collate_fn)
 
     embeddings = torch.load(args.cache_dir / "embeddings.pt")
 
-    # TODO: init model and move model to target device(cpu / gpu)
+    # TODO init model and move model to target device(cpu / gpu)
 
     model = SeqClassifier(
         embeddings=embeddings,\
@@ -75,7 +75,7 @@ def main(args):
     print(model)
     model.to(args.device)
 
-    # TODO: init optimizer
+    # TODO init optimizer
     # optimizer = torch.optim.SGD(model.parameters(), lr=args.lr, momentum=args.momentum)
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
     # optimizer = torch.optim.RMSprop(model.parameters(), lr=args.lr, alpha=0.99, eps=1e-08, weight_decay=0,\
@@ -97,7 +97,7 @@ def main(args):
         epoch_loss = 0.0
         correct = 0.0
 
-        # TODO: Training loop - iterate over train dataloader and update model weights
+        # TODO Training loop - iterate over train dataloader and update model weights
         model.train()
         for i, (id, text, text_len, intent) in enumerate(train_dataloader):
             # Compute prediction and loss
@@ -121,7 +121,7 @@ def main(args):
         y_loss['train'].append(tr_l)
         print(f'[train__{epoch + 1}]\tloss: {tr_l:.3f}')
 
-        # TODO: Evaluation loop - calculate accuracy and save model weights
+        # TODO Evaluation loop - calculate accuracy and save model weights
         model.eval()
         with torch.no_grad():
             for i, (id, text, text_len, intent) in enumerate(val_dataloader):
@@ -154,7 +154,7 @@ def main(args):
 
     torch.cuda.empty_cache()
 
-    # TODO: Inference on test set
+    # TODO Inference on test set
 
 
 def parse_args() -> Namespace:

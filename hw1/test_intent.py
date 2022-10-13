@@ -23,7 +23,7 @@ def main(args):
 
     data = json.loads(args.test_file.read_text())
     dataset = SeqClsDataset(data, vocab, intent2idx, args.max_len)
-    # TODO: crecate DataLoader for test dataset
+    # TODO crecate DataLoader for test dataset
     test_dataloader = DataLoader(dataset, args.batch_size, shuffle=False, collate_fn=dataset.collate_fn)
 
     embeddings = torch.load(args.cache_dir / "embeddings.pt")
@@ -42,7 +42,7 @@ def main(args):
     model.load_state_dict(checkpoint['model_state_dict'])
     model.to(args.device)
     
-    # TODO: predict dataset
+    # TODO predict dataset
     pred = {}
     model.eval()
     with torch.no_grad():
@@ -60,7 +60,7 @@ def main(args):
     
     # print(pred)
 
-    # TODO: write prediction to file (args.pred_file)
+    # TODO write prediction to file (args.pred_file)
     df = pd.DataFrame.from_dict(pred, orient='index')
     print(df)
     df.reset_index(inplace=True)

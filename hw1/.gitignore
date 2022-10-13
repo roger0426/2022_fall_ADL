@@ -2,4 +2,5 @@
 ckpt/
 *.pt
 
-cache
+cache/.DS_Store
+hw1_2_model/

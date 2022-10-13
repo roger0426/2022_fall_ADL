@@ -61,17 +61,31 @@ def objective(trial):
         'ckpt_dir': r'./ckpt/intent/',
 
         'max_len': 128,
-        'dropout': trial.suggest_float('dropout', 0.55, 0.7),
+        'dropout': 0.65,
         'bidirectional': True,
-        'lr': trial.suggest_float('lr', 0.0005, 0.005),
-        'momentum': trial.suggest_float('momentum', 0.6, 0.8),
+        'lr': 0.0015,
+        'momentum': 0.5,
         'device': 'cuda',
         'num_epoch': 150,
         'early_stop': 30,
 
-        'hidden_size': trial.suggest_int('hidden_size', 256, 1024, log=True),
+        'hidden_size': 1024,
         'num_layers': 1,
-        'batch_size': trial.suggest_int('batch_size', 128, 256, log=True),
+        'batch_size': 160,
+
+
+        # 'max_len': 128,
+        # 'dropout': trial.suggest_float('dropout', 0.55, 0.7),
+        # 'bidirectional': True,
+        # 'lr': trial.suggest_float('lr', 0.0005, 0.005),
+        # 'momentum': trial.suggest_float('momentum', 0.6, 0.8),
+        # 'device': 'cuda',
+        # 'num_epoch': 150,
+        # 'early_stop': 30,
+
+        # 'hidden_size': trial.suggest_int('hidden_size', 256, 1024, log=True),
+        # 'num_layers': 1,
+        # 'batch_size': trial.suggest_int('batch_size', 128, 256, log=True),
     }
 
 
@@ -276,7 +290,7 @@ if __name__ == "__main__":
     # main(args)
 
     study = optuna.create_study()  # Create a new study.
-    study.optimize(objective, n_trials=50)  # Invoke optimization of the objective function.
+    study.optimize(objective, n_trials=1)  # Invoke optimization of the objective function.
 
 
     print("Best trial:")
