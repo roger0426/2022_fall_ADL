@@ -85,7 +85,7 @@ class SeqTagger(SeqClassifier):
 
         self.fc1 = torch.nn.Linear(2*hidden_size, 512)
         self.fc2 = torch.nn.Linear(512, 256)
-        self.fc4 = torch.nn.Linear(256, num_class)
+        self.fc3 = torch.nn.Linear(256, num_class)
 
 
     def forward(self, batch, x_len) -> Dict[str, torch.Tensor]:
