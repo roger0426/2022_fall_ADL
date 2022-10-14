@@ -96,12 +96,12 @@ def parse_args() -> Namespace:
 
     # model
     parser.add_argument("--hidden_size", type=int, default=1024)
-    parser.add_argument("--num_layers", type=int, default=4)
-    parser.add_argument("--dropout", type=float, default=0.4)
+    parser.add_argument("--num_layers", type=int, default=1)
+    parser.add_argument("--dropout", type=float, default=0.3)
     parser.add_argument("--bidirectional", type=bool, default=True)
 
     # data loader
-    parser.add_argument("--batch_size", type=int, default=64)
+    parser.add_argument("--batch_size", type=int, default=16)
 
     parser.add_argument(
         "--device", type=torch.device, help="cpu, cuda, cuda:0, cuda:1", default="cuda:0"
@@ -109,6 +109,46 @@ def parse_args() -> Namespace:
     args = parser.parse_args()
     return args
 
+
+# def parse_args() -> Namespace:
+#     parser = ArgumentParser()
+#     parser.add_argument(
+#         "--test_file",
+#         type=Path,
+#         help="Path to the test file.",
+#         required=True
+#     )
+#     parser.add_argument(
+#         "--cache_dir",
+#         type=Path,
+#         help="Directory to the preprocessed caches.",
+#         default="./cache/intent/",
+#     )
+#     parser.add_argument(
+#         "--ckpt_path",
+#         type=Path,
+#         help="Path to model checkpoint.",
+#         required=True
+#     )
+#     parser.add_argument("--pred_file", type=Path, default="pred.intent.csv")
+
+#     # data
+#     parser.add_argument("--max_len", type=int, default=128)
+
+#     # model
+#     parser.add_argument("--hidden_size", type=int, default=1024)
+#     parser.add_argument("--num_layers", type=int, default=4)
+#     parser.add_argument("--dropout", type=float, default=0.4)
+#     parser.add_argument("--bidirectional", type=bool, default=True)
+
+#     # data loader
+#     parser.add_argument("--batch_size", type=int, default=64)
+
+#     parser.add_argument(
+#         "--device", type=torch.device, help="cpu, cuda, cuda:0, cuda:1", default="cuda:0"
+#     )
+#     args = parser.parse_args()
+#     return args
 
 if __name__ == "__main__":
     args = parse_args()

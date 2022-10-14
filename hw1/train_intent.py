@@ -16,7 +16,6 @@ from dataset import SeqClsDataset
 from model import SeqClassifier
 from utils import Vocab
 
-import random
 import os
 
 
@@ -32,6 +31,8 @@ def save_checkpoint(net, optimizer, path, epoch, loss, last_path):
         'model_state_dict': net.state_dict(),
         'optimizer_state_dict': optimizer.state_dict(),
         'val_loss': loss,
+        'hidden_size': args.hidden_size,
+        'num_layers': args.num_layers,
         },path)
     try:
         os.remove(last_path)
@@ -75,26 +76,15 @@ def main(args):
     print(model)
     model.to(args.device)
 
-    # TODO init optimizer
-    # optimizer = torch.optim.SGD(model.parameters(), lr=args.lr, momentum=args.momentum)
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
-    # optimizer = torch.optim.RMSprop(model.parameters(), lr=args.lr, alpha=0.99, eps=1e-08, weight_decay=0,\
-    #     momentum=args.momentum, centered=False, foreach=None)
     criterion = nn.CrossEntropyLoss() #ignore index
 
-
-    y_loss = {}  # loss history
-    y_loss['train'], y_loss['val'] = [], []
-    y_acc = {}
-    y_acc['train'], y_acc['val'] = [], []
     max_val_acc = 0.0
     last_model = ''
     epoch_pbar = [i for i in range(args.num_epoch)]
     for epoch in epoch_pbar:
 
         tr_loss, val_loss = 0.0, 0.0
-        tr_acc, val_acc = 0.0, 0.0
-        epoch_loss = 0.0
         correct = 0.0
 
         # TODO Training loop - iterate over train dataloader and update model weights
@@ -104,30 +94,21 @@ def main(args):
             text, intent = torch.LongTensor(text), torch.Tensor(intent).long()
             text, intent = text.to(args.device), intent.to(args.device)
             output = model(text, text_len)
-            # print('text.shape: ', text.shape, '\nintent.shape: ', intent.shape, '\npred.shape: ', pred.shape)
             loss = criterion(output, intent)
-            # print(pred, intent)
-
-            # _, max_idxs = torch.max(pred, dim=1)
             # Backpropagation
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
             
             tr_loss += loss.item()
-        # print(model.state_dict())
-
         tr_l = tr_loss/train_dataloader.__len__()
-        y_loss['train'].append(tr_l)
         print(f'[train__{epoch + 1}]\tloss: {tr_l:.3f}')
 
-        # TODO Evaluation loop - calculate accuracy and save model weights
+        # TODO Evaluation loop - calculate accuracy and save model weights23
         model.eval()
         with torch.no_grad():
             for i, (id, text, text_len, intent) in enumerate(val_dataloader):
-                text, intent = torch.LongTensor(text), torch.Tensor(intent).long()
-                # print(text.shape, intent.shape)
-
+                text, intent = torch.LongTensor(text), torch.LongTensor(intent).long()
                 text, intent = text.to(args.device), intent.to(args.device)
                 pred = model(text, text_len)
                 loss = criterion(pred, intent)
@@ -139,8 +120,6 @@ def main(args):
 
         val_l = val_loss/val_dataloader.__len__()
         a = correct/len(list(datasets[DEV]))
-        y_loss['val'].append(val_l)
-        y_acc['val'].append(a)
         print(f'[val__\t{epoch + 1}]\tloss: {val_l:.3f}, acc.: {a:.4f} %')
 
         if a > max_val_acc:
@@ -150,11 +129,7 @@ def main(args):
             last_model = cp_name
             print(f'save cp {cp_name}')
 
-        # epoch_pbar.set_postfix(train_loss=tr_l, val_loss=val_l, val_acc=a)
-
     torch.cuda.empty_cache()
-
-    # TODO Inference on test set
 
 
 def parse_args() -> Namespace:
@@ -185,24 +160,24 @@ def parse_args() -> Namespace:
     parser.add_argument("--max_len", type=int, default=128)
 
     # model
-    parser.add_argument("--hidden_size", type=int, default=2048) # 512
-    parser.add_argument("--num_layers", type=int, default=2)
-    parser.add_argument("--dropout", type=float, default=0.85)
+    parser.add_argument("--hidden_size", type=int, default=1024) # 512
+    parser.add_argument("--num_layers", type=int, default=1)
+    parser.add_argument("--dropout", type=float, default=0.3)
     parser.add_argument("--bidirectional", type=bool, default=True)
 
     # optimizer
-    parser.add_argument("--lr", type=float, default=5e-4)
-    parser.add_argument("--momentum", type=float, default=0.6)
+    parser.add_argument("--lr", type=float, default=5e-3)
+    parser.add_argument("--momentum", type=float, default=0.7)
     
 
     # data loader
-    parser.add_argument("--batch_size", type=int, default=256) # 64
+    parser.add_argument("--batch_size", type=int, default=16) # 64
 
     # training
     parser.add_argument(
         "--device", type=torch.device, help="cpu, cuda, cuda:0, cuda:1", default="cuda:0"
     )
-    parser.add_argument("--num_epoch", type=int, default=150)
+    parser.add_argument("--num_epoch", type=int, default=200)
 
     args = parser.parse_args()
     return args

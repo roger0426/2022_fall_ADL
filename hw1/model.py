@@ -40,6 +40,8 @@ class SeqClassifier(torch.nn.Module):
         self.fc3 = torch.nn.Linear(512, 256)
         self.fc4 = torch.nn.Linear(256, num_class)
 
+        self.dp = torch.nn.Dropout(p=dropout)
+
 
     @property
     def encoder_output_size(self) -> int:
@@ -58,9 +60,9 @@ class SeqClassifier(torch.nn.Module):
         # output = torch.sigmoid(self.fc1(output))
 
         max, _ = outputs.max(dim=1)
-        output = torch.relu(self.fc1(max))
-        output = torch.relu(self.fc2(output))
-        output = torch.relu(self.fc3(output))
+        output = self.dp(torch.relu(self.fc1(max)))
+        output = self.dp(torch.relu(self.fc2(output)))
+        output = self.dp(torch.relu(self.fc3(output)))
         output = self.fc4(output)
         return output
 
@@ -81,9 +83,10 @@ class SeqTagger(SeqClassifier):
         self.max_len = max_len
         self.num_class = num_class
 
-        self.fc1 = torch.nn.Linear(2*hidden_size, 512)
-        self.fc2 = torch.nn.Linear(512, 256)
-        self.fc3 = torch.nn.Linear(256, num_class)
+        self.fc1 = torch.nn.Linear(2*hidden_size, 1024)
+        self.fc2 = torch.nn.Linear(1024, 512)
+        self.fc3 = torch.nn.Linear(512, 256)
+        self.fc4 = torch.nn.Linear(256, num_class)
 
 
     def forward(self, batch, x_len) -> Dict[str, torch.Tensor]:
@@ -93,19 +96,10 @@ class SeqTagger(SeqClassifier):
         output, _ = self.GRU(x_packed)
         outputs, output_lengths = pad_packed_sequence(output, batch_first=True)
         
-        # output = outputs.mean(dim=1)
-        # output = torch.sigmoid(self.fc1(output))
-        # print('r', outputs) # #batch 13 1024
-        # max, _ = outputs.max(dim=1)
-        # print(max.shape)
-        # print('m', max)
-
-        # output = torch.relu(self.fc1(outputs))
-
-
-        output = torch.relu(self.fc1(outputs))
-        output = torch.relu(self.fc2(output))
-        output = self.fc3(output)
+        output = self.dp(torch.relu(self.fc1(outputs)))
+        output = self.dp(torch.relu(self.fc2(output)))
+        output = self.dp(torch.relu(self.fc3(output)))
+        output = self.fc4(output)
 
 
         # output = torch.relu(self.fc1(max))
@@ -128,14 +122,3 @@ class SeqTagger(SeqClassifier):
         target = target.transpose(1, 2)
         # print(target.shape)
         return target
-
-
-# class SlotClassifier(nn.Module):
-#     def __init__(self, input_dim, num_slot_labels, dropout_rate=0.):
-#         super(SlotClassifier, self).__init__()
-#         self.dropout = nn.Dropout(dropout_rate)
-#         self.linear = nn.Linear(input_dim, num_slot_labels)
-
-#     def forward(self, x):
-#         x = self.dropout(x)
-#         return self.linear(x)
