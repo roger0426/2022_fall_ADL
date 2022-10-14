@@ -22,7 +22,7 @@ import os
 TRAIN = "train"
 DEV = "eval"
 SPLITS = [TRAIN, DEV]
-MODEL_PATH = r'hw1_1_model/'
+MODEL_PATH = r'model/'
 MODEL_NAME = 'LSTM'
 
 def save_checkpoint(net, optimizer, path, epoch, loss, last_path):
