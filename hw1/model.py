@@ -83,9 +83,8 @@ class SeqTagger(SeqClassifier):
         self.max_len = max_len
         self.num_class = num_class
 
-        self.fc1 = torch.nn.Linear(2*hidden_size, 1024)
-        self.fc2 = torch.nn.Linear(1024, 512)
-        self.fc3 = torch.nn.Linear(512, 256)
+        self.fc1 = torch.nn.Linear(2*hidden_size, 512)
+        self.fc2 = torch.nn.Linear(512, 256)
         self.fc4 = torch.nn.Linear(256, num_class)
 
 
@@ -98,8 +97,7 @@ class SeqTagger(SeqClassifier):
         
         output = self.dp(torch.relu(self.fc1(outputs)))
         output = self.dp(torch.relu(self.fc2(output)))
-        output = self.dp(torch.relu(self.fc3(output)))
-        output = self.fc4(output)
+        output = self.fc3(output)
 
 
         # output = torch.relu(self.fc1(max))

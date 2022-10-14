@@ -35,7 +35,7 @@ def main(args):
     slot_idx_path = args.cache_dir / "tag2idx.json"
     tag2idx: Dict[str, int] = json.loads(slot_idx_path.read_text())
     print(tag2idx)
-    test_data_paths = args.data_dir / f"test.json"
+    test_data_paths = args.data_dir
     test_data = json.loads(test_data_paths.read_text())
 
     # test_data: a dict with train and val dataset in list format
@@ -50,6 +50,10 @@ def main(args):
 
     # TODO init model and move model to target device(cpu / gpu)
 
+    checkpoint = torch.load(args.ckpt_dir)
+    args.hidden_size = checkpoint['hidden_size']
+    args.num_layers = checkpoint['num_layers']
+
     model = SeqTagger(
         embeddings=embeddings,\
         hidden_size=args.hidden_size,\
@@ -62,7 +66,6 @@ def main(args):
     # print(model)
     model.to(args.device)
 
-    checkpoint = torch.load(args.ckpt_dir)
     model.load_state_dict(checkpoint['model_state_dict'])
     model.to(args.device)
 
@@ -110,6 +113,16 @@ def main(args):
             f.write('\n')
 
     torch.cuda.empty_cache()
+
+
+
+
+    # 'epoch': epoch,
+    # 'model_state_dict': net.state_dict(),
+    # 'optimizer_state_dict': optimizer.state_dict(),
+    # 'val_loss': loss,
+    # 'hidden_size': args.hidden_size,
+    # 'num_layers': args.num_layers,
 
 
 

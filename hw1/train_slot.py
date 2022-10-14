@@ -33,8 +33,6 @@ def save_checkpoint(net, optimizer, path, epoch, loss, last_path):
         'model_state_dict': net.state_dict(),
         'optimizer_state_dict': optimizer.state_dict(),
         'val_loss': loss,
-        'hidden_size': args.hidden_size,
-        'num_layers': args.num_layers,
 
         },path)
     try:
@@ -88,7 +86,8 @@ def main(args):
 
     # TODO init optimizer
     # optimizer = torch.optim.SGD(model.parameters(), lr=args.lr, momentum=args.momentum)
-    optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr)
+    optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr,\
+        betas=(0.9, 0.999), eps=1e-08, weight_decay=args.weight_decay)
     # optimizer = torch.optim.RMSprop(model.parameters(), lr=args.lr, alpha=0.99, eps=1e-08, weight_decay=0,\
     #     momentum=args.momentum, centered=False, foreach=None)
     criterion = nn.CrossEntropyLoss(ignore_index=-100) #ignore index
@@ -124,7 +123,6 @@ def main(args):
             # print('token.shape: ', token.shape, '\ntag.shape: ', tag.shape, '\npred.shape: ', pred.shape)
             # print(output.shape, tag.shape)
             # print(output, tag)
-        #FIXME:
             loss = criterion(output.to(args.device), tag)
             # print(output, tag)
             # print(loss)
@@ -215,16 +213,17 @@ def parse_args() -> Namespace:
     parser.add_argument("--max_len", type=int, default=128)
 
     # model
-    parser.add_argument("--hidden_size", type=int, default=512)
-    parser.add_argument("--num_layers", type=int, default=2)
-    parser.add_argument("--dropout", type=float, default=0.6)
+    parser.add_argument("--hidden_size", type=int, default=1024)
+    parser.add_argument("--num_layers", type=int, default=1)
+    parser.add_argument("--dropout", type=float, default=0.65)
     parser.add_argument("--bidirectional", type=bool, default=True)
 
     # optimizer
-    parser.add_argument("--lr", type=float, default=5e-4)
+    parser.add_argument("--lr", type=float, default=1e-4)
+    parser.add_argument("--weight_decay", type=float, default=1e-4)
 
     # data loader
-    parser.add_argument("--batch_size", type=int, default=32)
+    parser.add_argument("--batch_size", type=int, default=128)
 
     # training
     parser.add_argument(
