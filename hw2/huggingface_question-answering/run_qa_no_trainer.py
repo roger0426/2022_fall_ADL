@@ -29,7 +29,7 @@ from pathlib import Path
 import datasets
 import numpy as np
 import torch
-from datasets import load_dataset
+from datasets import load_dataset, Dataset
 from torch.utils.data import DataLoader
 from tqdm.auto import tqdm
 
@@ -57,7 +57,7 @@ from utils_qa import postprocess_qa_predictions
 
 
 # Will error if the minimal version of Transformers is not installed. Remove at your own risks.
-check_min_version("4.25.0.dev0")
+# check_min_version("4.25.0.dev0")
 
 require_version("datasets>=1.8.0", "To fix: pip install -r examples/pytorch/question-answering/requirements.txt")
 
@@ -107,15 +107,18 @@ def parse_args():
     parser.add_argument(
         "--train_file", type=str, default=None, help="A csv or a json file containing the training data."
     )
-    parser.add_argument(
-        "--preprocessing_num_workers", type=int, default=1, help="A csv or a json file containing the training data."
-    )
     parser.add_argument("--do_predict", action="store_true", help="To do prediction on the question answering model")
     parser.add_argument(
         "--validation_file", type=str, default=None, help="A csv or a json file containing the validation data."
     )
     parser.add_argument(
         "--test_file", type=str, default=None, help="A csv or a json file containing the Prediction data."
+    )
+    parser.add_argument(
+        "--context_file", type=str, default=None, help="A csv or a json file containing the context data."
+    )
+    parser.add_argument(
+        "--preprocessing_num_workers", type=int, default=1, help="A csv or a json file containing the training data."
     )
     parser.add_argument(
         "--max_seq_length",
@@ -399,10 +402,56 @@ def main():
             data_files["train"] = args.train_file
         if args.validation_file is not None:
             data_files["validation"] = args.validation_file
-        if args.test_file is not None:
-            data_files["test"] = args.test_file
+        # if args.test_file is not None:
+        #     data_files["test"] = args.test_file
         extension = args.train_file.split(".")[-1]
-        raw_datasets = load_dataset(extension, data_files=data_files, field="data")
+        # raw_datasets = load_dataset(extension, data_files=data_files)
+        raw_datasets = {}
+        with open(data_files["train"], 'r', encoding='utf-8') as f:
+            raw_datasets['train'] = json.load(f)
+            f.close()
+        with open(data_files["validation"], 'r', encoding='utf-8') as f:
+            raw_datasets['validation'] = json.load(f)
+            f.close()
+
+    with open(args.context_file, 'r', encoding='utf-8') as f:
+        context = json.load(f)
+        f.close()
+    print('context size:\t', len(context))
+
+    for a in ['train', 'validation']:
+        tmp_dict = raw_datasets[a]
+        # print(tmp_dict)
+        tmp = [
+            {
+                'id': item['id'],
+                'question': item['question'],
+                'context': context[item['relevant']],
+                'answers': {
+                    'text': [item['answer']['text']],
+                    'answer_start': [item['answer']['start']],
+                }
+            } for item in tmp_dict
+        ]
+        # raw_datasets[a] = tmp
+
+        raw_datasets[a] = Dataset.from_list(tmp)
+
+    # for rk in raw_datasets.keys():
+    #     cd = [context[idx] for idx in raw_datasets[rk]['relevant']]
+    #     raw_datasets[rk] = raw_datasets[rk].add_column("context", cd)
+        # print(raw_datasets[rk].column_names)
+        # print(raw_datasets[rk]['answer'][0])
+
+        # raw_datasets[rk] = raw_datasets[rk].rename_column("answer", "answer_old")
+
+        # ad = [{'text': dt['text'], 'answer_start': dt['start']} for dt in raw_datasets[rk]['answer_old']]
+        # ad = [{'text': dt['text'], 'answer_start': dt['start']} for dt in raw_datasets[rk]['answer_old']]
+        # raw_datasets[rk] = raw_datasets[rk].add_column("answer", ad)
+        
+        # mydict[k_new] = mydict.pop(k_old)
+        # print(raw_datasets[rk]['answer'][0])
+
     # See more about loading any type of standard or custom dataset (from files, python dict, pandas DataFrame, etc) at
     # https://huggingface.co/docs/datasets/loading_datasets.html.
 
@@ -442,6 +491,36 @@ def main():
     # Preprocessing the datasets.
     # Preprocessing is slighlty different for training and evaluation.
 
+    # TODO: Read dataset and connect the dataset
+    # {
+    #     "answers": {
+    #         "start": [1],
+    #         "text": ["This is a test text"]
+    #     },
+    #     "context": "This is a test context.",
+    #     "id": "1",
+    #     "question": "Is this a test?",
+    #     "title": "train test"
+    # }
+    # {
+    #     "id": "593f14f960d971e294af884f0194b3a7",
+    #     "question": "舍本和誰的數據能推算出連星的恆星的質量？",
+    #     "paragraphs": [
+    #     2018,
+    #     6952,
+    #     8264,
+    #     836
+    #     ],
+    #     "relevant": 836,
+    #     "answer": {
+    #     "text": "斯特魯維",
+    #     "start": 108
+    #     }
+    # },
+
+    # for rk in raw_datasets.keys():
+    #     raw_datasets[rk]['relevant'] = [context[idx] for idx in raw_datasets[rk]['relevant']]
+
     column_names = raw_datasets["train"].column_names
 
     question_column_name = "question" if "question" in column_names else column_names[0]
@@ -465,6 +544,7 @@ def main():
         # truncation of the context fail (the tokenized question will take a lots of space). So we remove that
         # left whitespace
         examples[question_column_name] = [q.lstrip() for q in examples[question_column_name]]
+        # examples[context_column_name] = [context[int(item)]for item in examples[context_column_name]]
 
         # Tokenize our examples with truncation and maybe padding, but keep the overflows using a stride. This results
         # in one example possible giving several features when a context is long, each of those features having a
@@ -504,12 +584,15 @@ def main():
             answers = examples[answer_column_name][sample_index]
             # If no answers are given, set the cls_index as answer.
             if len(answers["answer_start"]) == 0:
+            # if answers["answer_start"] == None:
                 tokenized_examples["start_positions"].append(cls_index)
                 tokenized_examples["end_positions"].append(cls_index)
             else:
                 # Start/end character index of the answer in the text.
                 start_char = answers["answer_start"][0]
                 end_char = start_char + len(answers["text"][0])
+                # start_char = answers["answer_start"]
+                # end_char = start_char + len(answers["text"])
 
                 # Start token index of the current span in the text.
                 token_start_index = 0
@@ -564,6 +647,7 @@ def main():
         # truncation of the context fail (the tokenized question will take a lots of space). So we remove that
         # left whitespace
         examples[question_column_name] = [q.lstrip() for q in examples[question_column_name]]
+        # examples[context_column_name] = [context[int(item)]for item in examples[context_column_name]]
 
         # Tokenize our examples with truncation and maybe padding, but keep the overflows using a stride. This results
         # in one example possible giving several features when a context is long, each of those features having a
@@ -866,6 +950,7 @@ def main():
 
             if completed_steps >= args.max_train_steps:
                 break
+            # if step > 5: break
 
         if args.checkpointing_steps == "epoch":
             output_dir = f"epoch_{epoch}"
@@ -885,48 +970,9 @@ def main():
                     commit_message=f"Training in progress epoch {epoch}", blocking=False, auto_lfs_prune=True
                 )
 
-    # Evaluation
-    logger.info("***** Running Evaluation *****")
-    logger.info(f"  Num examples = {len(eval_dataset)}")
-    logger.info(f"  Batch size = {args.per_device_eval_batch_size}")
-
-    all_start_logits = []
-    all_end_logits = []
-
-    model.eval()
-
-    for step, batch in enumerate(eval_dataloader):
-        with torch.no_grad():
-            outputs = model(**batch)
-            start_logits = outputs.start_logits
-            end_logits = outputs.end_logits
-
-            if not args.pad_to_max_length:  # necessary to pad predictions and labels for being gathered
-                start_logits = accelerator.pad_across_processes(start_logits, dim=1, pad_index=-100)
-                end_logits = accelerator.pad_across_processes(end_logits, dim=1, pad_index=-100)
-
-            all_start_logits.append(accelerator.gather_for_metrics(start_logits).cpu().numpy())
-            all_end_logits.append(accelerator.gather_for_metrics(end_logits).cpu().numpy())
-
-    max_len = max([x.shape[1] for x in all_start_logits])  # Get the max_length of the tensor
-
-    # concatenate the numpy array
-    start_logits_concat = create_and_fill_np_array(all_start_logits, eval_dataset, max_len)
-    end_logits_concat = create_and_fill_np_array(all_end_logits, eval_dataset, max_len)
-
-    # delete the list of numpy arrays
-    del all_start_logits
-    del all_end_logits
-
-    outputs_numpy = (start_logits_concat, end_logits_concat)
-    prediction = post_processing_function(eval_examples, eval_dataset, outputs_numpy)
-    eval_metric = metric.compute(predictions=prediction.predictions, references=prediction.label_ids)
-    logger.info(f"Evaluation metrics: {eval_metric}")
-
-    # Prediction
-    if args.do_predict:
-        logger.info("***** Running Prediction *****")
-        logger.info(f"  Num examples = {len(predict_dataset)}")
+        # Evaluation
+        logger.info("***** Running Evaluation *****")
+        logger.info(f"  Num examples = {len(eval_dataset)}")
         logger.info(f"  Batch size = {args.per_device_eval_batch_size}")
 
         all_start_logits = []
@@ -934,7 +980,7 @@ def main():
 
         model.eval()
 
-        for step, batch in enumerate(predict_dataloader):
+        for step, batch in enumerate(eval_dataloader):
             with torch.no_grad():
                 outputs = model(**batch)
                 start_logits = outputs.start_logits
@@ -946,46 +992,87 @@ def main():
 
                 all_start_logits.append(accelerator.gather_for_metrics(start_logits).cpu().numpy())
                 all_end_logits.append(accelerator.gather_for_metrics(end_logits).cpu().numpy())
+            # if step > 10: break
 
         max_len = max([x.shape[1] for x in all_start_logits])  # Get the max_length of the tensor
+
         # concatenate the numpy array
-        start_logits_concat = create_and_fill_np_array(all_start_logits, predict_dataset, max_len)
-        end_logits_concat = create_and_fill_np_array(all_end_logits, predict_dataset, max_len)
+        start_logits_concat = create_and_fill_np_ar[ray(all_start_logits, eval_dataset, max_len)
+        end_logits_concat = create_and_fill_np_array(all_end_logits, eval_dataset, max_len)
 
         # delete the list of numpy arrays
         del all_start_logits
         del all_end_logits
 
         outputs_numpy = (start_logits_concat, end_logits_concat)
-        prediction = post_processing_function(predict_examples, predict_dataset, outputs_numpy)
-        predict_metric = metric.compute(predictions=prediction.predictions, references=prediction.label_ids)
-        logger.info(f"Predict metrics: {predict_metric}")
+        prediction = post_processing_function(eval_examples, eval_dataset, outputs_numpy)
+        eval_metric = metric.compute(predictions=prediction.predictions, references=prediction.label_ids)
+        logger.info(f"Evaluation metrics: {eval_metric}")
 
-    if args.with_tracking:
-        log = {
-            "squad_v2" if args.version_2_with_negative else "squad": eval_metric,
-            "train_loss": total_loss.item() / len(train_dataloader),
-            "epoch": epoch,
-            "step": completed_steps,
-        }
-    if args.do_predict:
-        log["squad_v2_predict" if args.version_2_with_negative else "squad_predict"] = predict_metric
+        # Prediction
+        if args.do_predict:
+            logger.info("***** Running Prediction *****")
+            logger.info(f"  Num examples = {len(predict_dataset)}")
+            logger.info(f"  Batch size = {args.per_device_eval_batch_size}")
 
-        accelerator.log(log, step=completed_steps)
+            all_start_logits = []
+            all_end_logits = []
 
-    if args.output_dir is not None:
-        accelerator.wait_for_everyone()
-        unwrapped_model = accelerator.unwrap_model(model)
-        unwrapped_model.save_pretrained(
-            args.output_dir, is_main_process=accelerator.is_main_process, save_function=accelerator.save
-        )
-        if accelerator.is_main_process:
-            tokenizer.save_pretrained(args.output_dir)
-            if args.push_to_hub:
-                repo.push_to_hub(commit_message="End of training", auto_lfs_prune=True)
+            model.eval()
 
-            logger.info(json.dumps(eval_metric, indent=4))
-            save_prefixed_metrics(eval_metric, args.output_dir)
+            for step, batch in enumerate(predict_dataloader):
+                with torch.no_grad():
+                    outputs = model(**batch)
+                    start_logits = outputs.start_logits
+                    end_logits = outputs.end_logits
+
+                    if not args.pad_to_max_length:  # necessary to pad predictions and labels for being gathered
+                        start_logits = accelerator.pad_across_processes(start_logits, dim=1, pad_index=-100)
+                        end_logits = accelerator.pad_across_processes(end_logits, dim=1, pad_index=-100)
+
+                    all_start_logits.append(accelerator.gather_for_metrics(start_logits).cpu().numpy())
+                    all_end_logits.append(accelerator.gather_for_metrics(end_logits).cpu().numpy())
+
+            max_len = max([x.shape[1] for x in all_start_logits])  # Get the max_length of the tensor
+            # concatenate the numpy array
+            start_logits_concat = create_and_fill_np_array(all_start_logits, predict_dataset, max_len)
+            end_logits_concat = create_and_fill_np_array(all_end_logits, predict_dataset, max_len)
+
+            # delete the list of numpy arrays
+            del all_start_logits
+            del all_end_logits
+
+            outputs_numpy = (start_logits_concat, end_logits_concat)
+            prediction = post_processing_function(predict_examples, predict_dataset, outputs_numpy)
+            predict_metric = metric.compute(predictions=prediction.predictions, references=prediction.label_ids)
+            logger.info(f"Predict metrics: {predict_metric}")
+
+        if args.with_tracking:
+            log = {
+                "squad_v2" if args.version_2_with_negative else "squad": eval_metric,
+                "train_loss": total_loss.item() / len(train_dataloader),
+                "epoch": epoch,
+                "step": completed_steps,
+            }
+        if args.do_predict:
+            log["squad_v2_predict" if args.version_2_with_negative else "squad_predict"] = predict_metric
+
+            accelerator.log(log, step=completed_steps)
+
+        if args.output_dir is not None:
+            tmp_dir = args.output_dir+'_'+str(epoch)
+            accelerator.wait_for_everyone()
+            unwrapped_model = accelerator.unwrap_model(model)
+            unwrapped_model.save_pretrained(
+                tmp_dir, is_main_process=accelerator.is_main_process, save_function=accelerator.save
+            )
+            if accelerator.is_main_process:
+                tokenizer.save_pretrained(tmp_dir)
+                if args.push_to_hub:
+                    repo.push_to_hub(commit_message="End of training", auto_lfs_prune=True)
+
+                logger.info(json.dumps(eval_metric, indent=4))
+                save_prefixed_metrics(eval_metric, tmp_dir)
 
 
 if __name__ == "__main__":
