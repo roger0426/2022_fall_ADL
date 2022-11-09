@@ -5,11 +5,12 @@
 # $1: context file path (data/context.json
 # $2: testing file path (data/test.json
 # $3: predict output (output/mcqa/qa)
-tmp_path="./"
+mkdir ./tmp
+tmp_path="./tmp"
 
 python3.8 ./mc_test.py \
-  --model_name_or_path output/swag/wwm_ext_0.968/pytorch_model.bin \
-  --config_name output/swag/wwm_ext_0.968/config.json \
+  --model_name_or_path model/mc/pytorch_model.bin \
+  --config_name model/mc/config.json \
   --tokenizer_name bert-base-chinese \
   --test_file $2 \
   --context_file $1 \
@@ -18,8 +19,8 @@ python3.8 ./mc_test.py \
   --output_dir $tmp_path
 
 python3.8 ./qa_test.py \
-  --model_name_or_path output/qa/roberta_3/pytorch_model.bin \
-  --config_name output/qa/roberta_3/config.json \
+  --model_name_or_path model/qa/pytorch_model.bin \
+  --config_name model/qa/config.json \
   --tokenizer_name bert-base-chinese \
   --test_file $2 \
   --mc_pred_file $tmp_path/mc_pred.json \
