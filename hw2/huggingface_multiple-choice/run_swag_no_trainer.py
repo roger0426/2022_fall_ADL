@@ -573,7 +573,7 @@ def main():
             resume_step = int(training_difference.replace("step_", ""))
             starting_epoch = resume_step // len(train_dataloader)
             resume_step -= starting_epoch * len(train_dataloader)
-    min_loss = 9999.
+    min_loss, max_acc = 9999.0, 0.0
     for epoch in range(starting_epoch, args.num_train_epochs):
         model.train()
         if args.with_tracking:
@@ -621,7 +621,7 @@ def main():
                     output_dir = os.path.join(args.output_dir, output_dir)
                 accelerator.save_state(output_dir)
 
-            if (step <= 30 and step%5 == 0 and epoch == 0) or step%500 == 0 or step == len(train_dataloader):
+            if step == len(train_dataloader)-1: # (step <= 30 and step%5 == 0 and epoch == 0) or step%500 == 0 or 
                 l = f'loss: {loss.item()}'
                 print(f"epoch {epoch}, step {step}: {l}")
                 model.eval()
@@ -639,6 +639,8 @@ def main():
 
                 eval_metric = metric.compute()
                 accelerator.print(f"epoch {epoch}: {eval_metric}, min loss: {min_loss}")
+                # if eval_metric['accuracy'] > max_acc:
+                #     max_acc = eval_metric['accuracy']
 
 
         if args.with_tracking:
@@ -670,21 +672,22 @@ def main():
                 output_dir = os.path.join(args.output_dir, output_dir)
             accelerator.save_state(output_dir)
 
-    if args.with_tracking:
-        accelerator.end_training()
+        if args.with_tracking:
+            accelerator.end_training()
 
-    if args.output_dir is not None:
-        accelerator.wait_for_everyone()
-        unwrapped_model = accelerator.unwrap_model(model)
-        unwrapped_model.save_pretrained(
-            args.output_dir, is_main_process=accelerator.is_main_process, save_function=accelerator.save
-        )
-        if accelerator.is_main_process:
-            tokenizer.save_pretrained(args.output_dir)
-            if args.push_to_hub:
-                repo.push_to_hub(commit_message="End of training", auto_lfs_prune=True)
-        with open(os.path.join(args.output_dir, "all_results.json"), "w") as f:
-            json.dump({"eval_accuracy": eval_metric["accuracy"]}, f)
+        if args.output_dir is not None:
+            tmp_dir = args.output_dir+'_'+str(epoch)
+            accelerator.wait_for_everyone()
+            unwrapped_model = accelerator.unwrap_model(model)
+            unwrapped_model.save_pretrained(
+                tmp_dir, is_main_process=accelerator.is_main_process, save_function=accelerator.save
+            )
+            if accelerator.is_main_process:
+                tokenizer.save_pretrained(tmp_dir)
+                if args.push_to_hub:
+                    repo.push_to_hub(commit_message="End of training", auto_lfs_prune=True)
+            with open(os.path.join(tmp_dir, "all_results.json"), "w") as f:
+                json.dump({"eval_accuracy": eval_metric["accuracy"]}, f)
 
 
 if __name__ == "__main__":

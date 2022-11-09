@@ -997,7 +997,7 @@ def main():
         max_len = max([x.shape[1] for x in all_start_logits])  # Get the max_length of the tensor
 
         # concatenate the numpy array
-        start_logits_concat = create_and_fill_np_ar[ray(all_start_logits, eval_dataset, max_len)
+        start_logits_concat = create_and_fill_np_array(all_start_logits, eval_dataset, max_len)
         end_logits_concat = create_and_fill_np_array(all_end_logits, eval_dataset, max_len)
 
         # delete the list of numpy arrays
@@ -1007,6 +1007,7 @@ def main():
         outputs_numpy = (start_logits_concat, end_logits_concat)
         prediction = post_processing_function(eval_examples, eval_dataset, outputs_numpy)
         eval_metric = metric.compute(predictions=prediction.predictions, references=prediction.label_ids)
+        eval_metric['train_loss'] = total_loss.item() / len(train_dataloader)
         logger.info(f"Evaluation metrics: {eval_metric}")
 
         # Prediction
