@@ -548,7 +548,7 @@ def main():
         accelerator.init_trackers("swag_no_trainer", experiment_config)
 
     # Metrics
-    metric = evaluate.load("accuracy")
+    # metric = evaluate.load("accuracy")
 
     # Train!
     total_batch_size = args.per_device_test_batch_size * accelerator.num_processes * args.gradient_accumulation_steps

@@ -11,7 +11,7 @@ tmp_path="./tmp"
 python3.8 ./mc_test.py \
   --model_name_or_path model/mc/pytorch_model.bin \
   --config_name model/mc/config.json \
-  --tokenizer_name bert-base-chinese \
+  --tokenizer_name model/mc \
   --test_file $2 \
   --context_file $1 \
   --max_length 512 \
@@ -21,7 +21,7 @@ python3.8 ./mc_test.py \
 python3.8 ./qa_test.py \
   --model_name_or_path model/qa/pytorch_model.bin \
   --config_name model/qa/config.json \
-  --tokenizer_name bert-base-chinese \
+  --tokenizer_name model/qa \
   --test_file $2 \
   --mc_pred_file $tmp_path/mc_pred.json \
   --context_file $1 \
@@ -31,3 +31,6 @@ python3.8 ./qa_test.py \
   --do_predict \
   --per_device_eval_batch_size 32 \
   --output_dir $3
+
+
+# bert-base-chinese
