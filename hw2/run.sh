@@ -31,6 +31,3 @@ python3.8 ./qa_test.py \
   --do_predict \
   --per_device_eval_batch_size 32 \
   --output_dir $3
-
-
-# bert-base-chinese

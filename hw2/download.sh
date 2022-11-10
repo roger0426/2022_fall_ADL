@@ -2,7 +2,6 @@
 
 mkdir ./model
 
-# python3.8 hw1_download.py
 gdown 10i442TZT3obhS-9vyB6dXS6_SOHwSdc_ -O ./model/mc.zip
 gdown 12EwWUqm-G0CqvafyJiS5F4xcUTBsXmrN -O ./model/qa.zip
 
