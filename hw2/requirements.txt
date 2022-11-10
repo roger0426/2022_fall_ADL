@@ -1,0 +1,6 @@
+torch
+gdown
+datasets
+evaluate
+transformers
+accelerate
