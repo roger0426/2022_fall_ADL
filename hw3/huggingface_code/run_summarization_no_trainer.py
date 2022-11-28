@@ -23,6 +23,9 @@ import json
 import logging
 import math
 import os
+import sys
+import subprocess
+import shutil
 import random
 from pathlib import Path
 
@@ -56,7 +59,7 @@ from transformers.utils.versions import require_version
 
 
 # Will error if the minimal version of Transformers is not installed. Remove at your own risks.
-check_min_version("4.25.0.dev0")
+# check_min_version("4.25.0.dev0")
 
 logger = get_logger(__name__)
 require_version("datasets>=1.8.0", "To fix: pip install -r examples/pytorch/summarization/requirements.txt")
@@ -310,10 +313,10 @@ def parse_args():
     else:
         if args.train_file is not None:
             extension = args.train_file.split(".")[-1]
-            assert extension in ["csv", "json"], "`train_file` should be a csv or a json file."
+            assert extension in ["csv", "json", "jsonl"], "`train_file` should be a csv or a json file."
         if args.validation_file is not None:
             extension = args.validation_file.split(".")[-1]
-            assert extension in ["csv", "json"], "`validation_file` should be a csv or a json file."
+            assert extension in ["csv", "json", "jsonl"], "`validation_file` should be a csv or a json file."
 
     if args.push_to_hub:
         assert args.output_dir is not None, "Need an `output_dir` to create a repo when `--push_to_hub` is passed."
@@ -325,7 +328,7 @@ def main():
     args = parse_args()
     # Sending telemetry. Tracking the example usage helps us better allocate resources to maintain them. The
     # information sent is the one passed as arguments along with your Python/PyTorch versions.
-    send_example_telemetry("run_summarization_no_trainer", args)
+    # send_example_telemetry("run_summarization_no_trainer", args)
 
     # Initialize the accelerator. We will let the accelerator handle device placement for us in this example.
     # If we're using tracking, we also need to initialize it here and it will by default pick up all supported trackers
@@ -403,7 +406,9 @@ def main():
         if args.validation_file is not None:
             data_files["validation"] = args.validation_file
         extension = args.train_file.split(".")[-1]
+        if extension == "jsonl": extension = "json"
         raw_datasets = load_dataset(extension, data_files=data_files)
+    validation_idx_list = [item['id'] for item in raw_datasets['validation']]
     # See more about loading any type of standard or custom dataset (from files, python dict, pandas DataFrame, etc) at
     # https://huggingface.co/docs/datasets/loading_datasets.html.
 
@@ -419,6 +424,7 @@ def main():
         config = CONFIG_MAPPING[args.model_type]()
         logger.warning("You are instantiating a new config instance from scratch.")
 
+    #TODO: change the tokenizer to the chinese oen
     if args.tokenizer_name:
         tokenizer = AutoTokenizer.from_pretrained(args.tokenizer_name, use_fast=not args.use_slow_tokenizer)
     elif args.model_name_or_path:
@@ -476,6 +482,7 @@ def main():
     max_target_length = args.max_target_length
     padding = "max_length" if args.pad_to_max_length else False
 
+    # TODO: deal with data loading
     def preprocess_function(examples):
         inputs = examples[text_column]
         targets = examples[summary_column]
@@ -533,7 +540,9 @@ def main():
     train_dataloader = DataLoader(
         train_dataset, shuffle=True, collate_fn=data_collator, batch_size=args.per_device_train_batch_size
     )
-    eval_dataloader = DataLoader(eval_dataset, collate_fn=data_collator, batch_size=args.per_device_eval_batch_size)
+    eval_dataloader = DataLoader(
+        eval_dataset, shuffle=False, collate_fn=data_collator, batch_size=args.per_device_eval_batch_size
+    )
 
     # Optimizer
     # Split weights in two groups, one with weight decay and the other not.
@@ -590,7 +599,7 @@ def main():
         accelerator.init_trackers("summarization_no_trainer", experiment_config)
 
     # Metric
-    metric = evaluate.load("rouge")
+    # metric = evaluate.load("rouge")
 
     # Train!
     total_batch_size = args.per_device_train_batch_size * accelerator.num_processes * args.gradient_accumulation_steps
@@ -602,6 +611,14 @@ def main():
     logger.info(f"  Total train batch size (w. parallel, distributed & accumulation) = {total_batch_size}")
     logger.info(f"  Gradient Accumulation steps = {args.gradient_accumulation_steps}")
     logger.info(f"  Total optimization steps = {args.max_train_steps}")
+
+    print("***** Running training *****")
+    print(f"  Num examples = {len(train_dataset)}")
+    print(f"  Num Epochs = {args.num_train_epochs}")
+    print(f"  Instantaneous batch size per device = {args.per_device_train_batch_size}")
+    print(f"  Total train batch size (w. parallel, distributed & accumulation) = {total_batch_size}")
+    print(f"  Gradient Accumulation steps = {args.gradient_accumulation_steps}")
+    print(f"  Total optimization steps = {args.max_train_steps}")
     # Only show the progress bar once on each machine.
     progress_bar = tqdm(range(args.max_train_steps), disable=not accelerator.is_local_main_process)
     completed_steps = 0
@@ -628,17 +645,21 @@ def main():
             starting_epoch = resume_step // len(train_dataloader)
             resume_step -= starting_epoch * len(train_dataloader)
 
+    max_r1, max_r2, max_rL = 0.0, 0.0, 0.0
+    last_checkpoint_path, last_baseline = '', False
     for epoch in range(starting_epoch, args.num_train_epochs):
         model.train()
         if args.with_tracking:
             total_loss = 0
         for step, batch in enumerate(train_dataloader):
+            if step >= len(train_dataloader)/2: break
+            # if step >= 10: break
             # We need to skip steps until we reach the resumed step
             if args.resume_from_checkpoint and epoch == starting_epoch:
                 if resume_step is not None and step < resume_step:
                     completed_steps += 1
                     continue
-
+            # print(type(batch), batch.columns())
             with accelerator.accumulate(model):
                 outputs = model(**batch)
                 loss = outputs.loss
@@ -673,8 +694,12 @@ def main():
             "max_length": args.val_max_target_length if args is not None else config.max_length,
             "num_beams": args.num_beams,
         }
+        predicts = []
+        logger.info('evaluating........')
         for step, batch in enumerate(eval_dataloader):
+            # if step >= 10: break
             with torch.no_grad():
+                idx = validation_idx_list[step]
                 generated_tokens = accelerator.unwrap_model(model).generate(
                     batch["input_ids"],
                     attention_mask=batch["attention_mask"],
@@ -702,38 +727,109 @@ def main():
                 decoded_labels = tokenizer.batch_decode(labels, skip_special_tokens=True)
 
                 decoded_preds, decoded_labels = postprocess_text(decoded_preds, decoded_labels)
-                metric.add_batch(
-                    predictions=decoded_preds,
-                    references=decoded_labels,
-                )
-        result = metric.compute(use_stemmer=True)
-        result = {k: round(v * 100, 4) for k, v in result.items()}
+                # metric.add_batch(
+                #     predictions=decoded_preds,
+                #     references=decoded_labels,
+                # )
+                for i, item in enumerate(decoded_preds):
+                    predicts.append({"title": item.replace("<extra_id_0>",  ""), \
+                                        "id": validation_idx_list[args.per_device_eval_batch_size*step+i]})
+                    
 
-        logger.info(result)
+                # if step <= 20: print(decoded_preds)
+                # print(batch["input_ids"], decoded_preds, decoded_labels)
+        
+        with open(args.output_dir + 'val_predicts.jsonl', 'w') as file1:
+            for row in predicts:
+                # file.write(f'{row}\n')
+                json.dump(row, file1)
+                file1.write(f'\n')
+        
+        with open(args.output_dir + 'val_predicts_2.jsonl', 'w') as file2:
+            for row in predicts:
+                file2.write(f'{row}\n')
+                # json.dump(row, file2)
+                # file2.write(f'\n')
 
+        logger.info('calculate rouge score')
+        rouge_score = json.loads(subprocess.check_output(f'python3.8 eval.py -r hw3_data/public.jsonl -s {args.output_dir}val_predicts.jsonl 2> /dev/null', shell=True).decode("utf-8"))
+        r_1 = rouge_score['rouge-1']['f']*100
+        r_2 = rouge_score['rouge-2']['f']*100
+        r_L = rouge_score['rouge-l']['f']*100
+        logger.info('epoch: {e}, r_1: {r1:.2f}, r_2: {r2:.2f}, r_L: {rL:.2f}'.format(e=epoch, r1=r_1, r2=r_2, rL=r_L))
+        print('epoch: {e}, r_1: {r1:.2f}, r_2: {r2:.2f}, r_L: {rL:.2f}'.format(e=epoch, r1=r_1, r2=r_2, rL=r_L))
+
+        higher_score = False
+        if r_1 > max_r1:
+            max_r1 = r_1
+            higher_score = True
+        elif r_2 > max_r2:
+            max_r2 = r_2
+            higher_score = True
+        elif r_L > max_rL:
+            max_rL = r_L
+            higher_score = True
+        # {
+        #     "rouge-1": {
+        #         "r": 0.01987179487179487,
+        #         "p": 0.03333333333333333,
+        #         "f": 0.02319902250518443
+        #     },
+        #     "rouge-2": {
+        #         "r": 0.0,
+        #         "p": 0.0,
+        #         "f": 0.0
+        #     },
+        #     "rouge-l": {
+        #         "r": 0.01987179487179487,
+        #         "p": 0.03333333333333333,
+        #         "f": 0.02319902250518443
+        #     }
+        # }
+
+        # logger.info(result)
+        result = {}
         if args.with_tracking:
+            result['rouge-1'] = r_1
+            result['rouge-2'] = r_2
+            result['rouge-l'] = r_L
             result["train_loss"] = total_loss.item() / len(train_dataloader)
             result["epoch"] = epoch
             result["step"] = completed_steps
             accelerator.log(result, step=completed_steps)
 
-        if args.push_to_hub and epoch < args.num_train_epochs - 1:
-            accelerator.wait_for_everyone()
-            unwrapped_model = accelerator.unwrap_model(model)
-            unwrapped_model.save_pretrained(
-                args.output_dir, is_main_process=accelerator.is_main_process, save_function=accelerator.save
-            )
-            if accelerator.is_main_process:
-                tokenizer.save_pretrained(args.output_dir)
-                repo.push_to_hub(
-                    commit_message=f"Training in progress epoch {epoch}", blocking=False, auto_lfs_prune=True
-                )
+        # if args.push_to_hub and epoch < args.num_train_epochs - 1:
 
-        if args.checkpointing_steps == "epoch":
+        if higher_score: # args.checkpointing_steps == "epoch" and 
+
             output_dir = f"epoch_{epoch}"
             if args.output_dir is not None:
                 output_dir = os.path.join(args.output_dir, output_dir)
+
+            accelerator.wait_for_everyone()
+            unwrapped_model = accelerator.unwrap_model(model)
+            unwrapped_model.save_pretrained(
+                output_dir, is_main_process=accelerator.is_main_process, save_function=accelerator.save
+            )
+            if accelerator.is_main_process:
+                tokenizer.save_pretrained(output_dir)
+                # repo.push_to_hub(
+                #     commit_message=f"Training in progress epoch {epoch}", blocking=False, auto_lfs_prune=True
+                # )
+
             accelerator.save_state(output_dir)
+
+            all_results = {f"eval_{k}": v for k, v in result.items()}
+            with open(os.path.join(output_dir, "all_results.json"), "w") as f:
+                json.dump(all_results, f)
+
+            # os.system(f'rm -r {best_checkpoint_path}')
+            if not last_baseline and r_1 >= max_r1 and r_2 >= max_r2 and r_L >= max_rL:
+                shutil.rmtree(last_checkpoint_path, ignore_errors=True)
+            last_checkpoint_path = output_dir
+            if r_1 > 22 and r_2 > 8.5 and r_L > 20.5:
+                last_baseline = True
+
 
     if args.output_dir is not None:
         accelerator.wait_for_everyone()
@@ -743,8 +839,8 @@ def main():
         )
         if accelerator.is_main_process:
             tokenizer.save_pretrained(args.output_dir)
-            if args.push_to_hub:
-                repo.push_to_hub(commit_message="End of training", auto_lfs_prune=True)
+            # if args.push_to_hub:
+            #     repo.push_to_hub(commit_message="End of training", auto_lfs_prune=True)
 
             all_results = {f"eval_{k}": v for k, v in result.items()}
             with open(os.path.join(args.output_dir, "all_results.json"), "w") as f:

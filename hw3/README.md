@@ -59,4 +59,6 @@ python eval.py -r public.jsonl -s submission.jsonl
 
 
 ## Reference
-[cccntu/tw_rouge](https://github.com/cccntu/tw_rouge)
+[cccntu/tw_rouge](https://github.com/cccntu/tw_rouge)  
+[Huggungface sample](https://github.com/huggingface/transformers/tree/main/examples/pytorch/summarization)  
+[Summarization tutorial](https://xiaosheng.run/2022/03/29/transformers-note-8.html)  

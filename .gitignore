@@ -1,5 +1,6 @@
 glove.840B.300d.txt
-
+*.zip
+*data/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
