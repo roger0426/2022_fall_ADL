@@ -1,64 +1,41 @@
-# ADL22-HW3
-Dataset & evaluation script for ADL 2022 homework 3
+# Code for Homework 3 ADL NTU
 
-## Dataset
-[download link](https://drive.google.com/file/d/186ejZVADY16RBfVjzcMcz9bal9L3inXC/view?usp=sharing)
-
-## Installation
-```
-git clone https://github.com/moooooser999/ADL22-HW3.git
-cd ADL22-HW3
-pip install -e tw_rouge
-```
-
-
-## Usage
-### Use the Script
-```
-usage: eval.py [-h] [-r REFERENCE] [-s SUBMISSION]
-
-optional arguments:
-  -h, --help            show this help message and exit
-  -r REFERENCE, --reference REFERENCE
-  -s SUBMISSION, --submission SUBMISSION
+## Envirement preparing
+You can download the code directiry or use git clone the repo.
+Instsall requirements.txt in a Python=3.8.0 environment.
+```shell
+# Download from github (private repo)
+git clone https://github.com/roger0426/2022_fall_ADL.git
+cd 2022_fall_ADL/hw3
+pip install -r requirement.txt
 ```
 
-Example:
-```
-python eval.py -r public.jsonl -s submission.jsonl
-{
-  "rouge-1": {
-    "f": 0.21999419163162043,
-    "p": 0.2446195813913345,
-    "r": 0.2137398792982201
-  },
-  "rouge-2": {
-    "f": 0.0847583291303246,
-    "p": 0.09419044877345074,
-    "r": 0.08287844474014894
-  },
-  "rouge-l": {
-    "f": 0.21017939117006337,
-    "p": 0.25157090570020846,
-    "r": 0.19404349000921203
-  }
-}
+**You could pip install specific torch version from Pytorch if you have a newer edition of GPU and get error when execute the code.**
+- More details: https://pytorch.org/get-started/locally/
+- Eg: for linux, pip
+  ```
+  pip3 install torch --extra-index-url https://download.pytorch.org/whl/cu116
+  ```
+## Downloading
+Download necessary file before execute the program, including model
+```shell
+bash download.sh
 ```
 
-
-### Use Python Library
+## Training
+```shell
+# set hyperparameters in .sh file
+bash hw3_train.sh
 ```
->>> from tw_rouge import get_rouge
->>> get_rouge('我是人', '我是一個人')
-{'rouge-1': {'f': 0.7499999953125, 'p': 1.0, 'r': 0.6}, 'rouge-2': {'f': 0.33333332888888895, 'p': 0.5, 'r': 0.25}, 'rouge-l': {'f': 0.7499999953125, 'p': 1.0, 'r': 0.6}}
->>> get_rouge(['我是人'], [ '我是一個人'])
-{'rouge-1': {'f': 0.7499999953125, 'p': 1.0, 'r': 0.6}, 'rouge-2': {'f': 0.33333332888888895, 'p': 0.5, 'r': 0.25}, 'rouge-l': {'f': 0.7499999953125, 'p': 1.0, 'r': 0.6}}
->>> get_rouge(['我是人'], ['我是一個人'], avg=False)
-[{'rouge-1': {'f': 0.7499999953125, 'p': 1.0, 'r': 0.6}, 'rouge-2': {'f': 0.33333332888888895, 'p': 0.5, 'r': 0.25}, 'rouge-l': {'f': 0.7499999953125, 'p': 1.0, 'r': 0.6}}]
+
+## Inference
+```shell
+bash run.sh [input context jsonl file] [output summarization file]
 ```
 
 
 ## Reference
 [cccntu/tw_rouge](https://github.com/cccntu/tw_rouge)  
+[Huggingdace mT5_small](https://huggingface.co/google/mt5-small)
 [Huggungface sample](https://github.com/huggingface/transformers/tree/main/examples/pytorch/summarization)  
 [Summarization tutorial](https://xiaosheng.run/2022/03/29/transformers-note-8.html)  
