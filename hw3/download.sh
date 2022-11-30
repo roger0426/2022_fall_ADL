@@ -1,7 +1,6 @@
 #!/bin/bash
 
 mkdir ./model
-gdown 14kiGTGF9mOLaBpTXLThtXbTXv-7WIa9a -O ./model/model.zip
+gdown 10Do1vtHvU0xo5eX0C81OxaG_s99bq1FF -O ./model/model.zip
 unzip ./model/model.zip -d ./model
 
-# https://drive.google.com/file/d/14kiGTGF9mOLaBpTXLThtXbTXv-7WIa9a/view?usp=share_link

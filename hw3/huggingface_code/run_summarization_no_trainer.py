@@ -749,8 +749,8 @@ def main():
         r_1 = rouge_score['rouge-1']['f']*100
         r_2 = rouge_score['rouge-2']['f']*100
         r_L = rouge_score['rouge-l']['f']*100
-        logger.info('epoch: {e}, r_1: {r1:.2f}, r_2: {r2:.2f}, r_L: {rL:.2f}'.format(e=epoch, r1=r_1, r2=r_2, rL=r_L))
-        print('epoch: {e}, r_1: {r1:.2f}, r_2: {r2:.2f}, r_L: {rL:.2f}'.format(e=epoch, r1=r_1, r2=r_2, rL=r_L))
+        logger.info('epoch: {e}, loss: {l}, r_1: {r1:.2f}, r_2: {r2:.2f}, r_L: {rL:.2f}'.format(e=epoch, r1=r_1, r2=r_2, rL=r_L))
+        print('epoch: {e}, loss: {l}, r_1: {r1:.2f}, r_2: {r2:.2f}, r_L: {rL:.2f}'.format(e=epoch, l=total_loss.item() / len(train_dataloader), r1=r_1, r2=r_2, rL=r_L))
 
         higher_score = False
         if r_1 > max_r1:
@@ -800,7 +800,7 @@ def main():
                 json.dump(all_results, f)
 
             # os.system(f'rm -r {best_checkpoint_path}')
-            if not last_baseline and r_1 >= max_r1 and r_2 >= max_r2 and r_L >= max_rL:
+            if r_1 >= max_r1 and r_2 >= max_r2 and r_L >= max_rL:
                 shutil.rmtree(last_checkpoint_path, ignore_errors=True)
             last_checkpoint_path = output_dir
             if r_1 > 22 and r_2 > 8.5 and r_L > 20.5:
